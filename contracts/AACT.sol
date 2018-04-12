@@ -1,7 +1,7 @@
 pragma solidity ^0.4.18;
 
 
-import "./AACTAccessControl.sol";
+import "./BasicToken.sol";
 import "./ERC20.sol";
 
 
@@ -10,7 +10,7 @@ import "./ERC20.sol";
  *
  * @dev https://github.com/ethereum/EIPs/issues/20
  */
-contract AACT is ERC20, AACTAccessControl {
+contract AACT is ERC20, BasicToken {
 
     string public constant name = "龙古多多";
     string public constant symbol = "AACT";
