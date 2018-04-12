@@ -70,13 +70,19 @@ contract AACT is ERC20, AACTAccessControl {
         totalSupply_ = INITIAL_SUPPLY;
     }
 
+    /// @dev Distribute _amount AACT to _to
+    function distributeAACT(address _to, uint256 _amount) internal {
+        balances[_to] = balances[_to].add(_amount);
+        totalSupply_ = totalSupply_.add(_amount);
+    }
+
     /**
     * @dev Register an company address with a salesman, only CEO has the privilege to invoke
     * @param _new the new address which need to be registered
     * @param _valuation the valuation of _new company
     * @param _salesman _new's salesman
     */
-    function register(address _new, uint256 _valuation, address _salesman) public onlyCEO {
+    function register(address _new, uint256 _valuation, address _salesman) public whenNotPaused onlyCEO {
         // the _new must hasn't been registered
         require(salesmans[_new] == address(0));
         // set _salesman as _new's salesman
@@ -99,7 +105,7 @@ contract AACT is ERC20, AACTAccessControl {
     * @param _to address The address which you want to transfer to
     * @param _value uint256 the amount of tokens to be transferred
     */
-    function transferFrom(address _from, address _to, uint256 _value) public before2020 returns (bool) {
+    function transferFrom(address _from, address _to, uint256 _value) public whenNotPaused before2020 returns (bool) {
         require(_to != address(0));
         require(_value <= balances[_from]);
         require(_value <= allowed[_from][msg.sender]);
@@ -121,7 +127,7 @@ contract AACT is ERC20, AACTAccessControl {
     * @param _spender The address which will spend the funds.
     * @param _value The amount of tokens to be spent.
     */
-    function approve(address _spender, uint256 _value) public before2020 returns (bool) {
+    function approve(address _spender, uint256 _value) public whenNotPaused before2020 returns (bool) {
         allowed[msg.sender][_spender] = _value;
         emit Approval(msg.sender, _spender, _value);
         return true;
@@ -147,7 +153,7 @@ contract AACT is ERC20, AACTAccessControl {
     * @param _spender The address which will spend the funds.
     * @param _addedValue The amount of tokens to increase the allowance by.
     */
-    function increaseApproval(address _spender, uint _addedValue) public before2020 returns (bool) {
+    function increaseApproval(address _spender, uint _addedValue) public whenNotPaused before2020 returns (bool) {
         allowed[msg.sender][_spender] = allowed[msg.sender][_spender].add(_addedValue);
         emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
         return true;
@@ -163,7 +169,7 @@ contract AACT is ERC20, AACTAccessControl {
     * @param _spender The address which will spend the funds.
     * @param _subtractedValue The amount of tokens to decrease the allowance by.
     */
-    function decreaseApproval(address _spender, uint _subtractedValue) public before2020 returns (bool) {
+    function decreaseApproval(address _spender, uint _subtractedValue) public whenNotPaused before2020 returns (bool) {
         uint oldValue = allowed[msg.sender][_spender];
         if (_subtractedValue > oldValue) {
             allowed[msg.sender][_spender] = 0;

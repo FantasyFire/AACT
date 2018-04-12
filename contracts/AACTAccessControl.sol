@@ -1,12 +1,11 @@
 pragma solidity ^0.4.18;
 
-import "./BasicToken.sol";
+import "./ERC20Basic.sol";
 
 /**
  * @title A facet of AACT that manages special access privileges.
- *
  */
-contract AACTAccessControl is BasicToken {
+contract AACTAccessControl is ERC20Basic {
     // This facet controls access control for AACT tokens. There are simple roles managed all:
     //
     //     - The CEO: The CEO can reassign other roles and change the addresses of our dependent smart
@@ -27,12 +26,6 @@ contract AACTAccessControl is BasicToken {
     modifier onlyCEO() {
         require(msg.sender == ceoAddress);
         _;
-    }
-
-    /// @dev Distribute _amount AACT to _to
-    function distributeAACT(address _to, uint256 _amount) internal {
-        balances[_to].add(_amount);
-        totalSupply_.add(_amount);
     }
 
     /// @dev Assigns a new address to act as the CEO. Only available to the current CEO.
