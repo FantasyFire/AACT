@@ -32,7 +32,7 @@ contract AACT is ERC20, BasicToken {
     address[] public footstoneAccounts;
 
     // events
-    // emit when someone register successfully
+    // emit when a company register successfully
     event CompanyRegister(
         address _new,
         address referee,
@@ -42,6 +42,15 @@ contract AACT is ERC20, BasicToken {
         uint256 livelihoodAACT,
         uint256 footstoneAACT,
         uint256 salesmanAACT
+    );
+    // emit when a footstone member register successfully
+    event FootstoneRegister(
+        address _new
+    );
+    // emit when CEO withdraw someone's AACT
+    event WithdrawAACT(
+        address from,
+        uint256 amount
     );
 
     mapping (address => mapping (address => uint256)) internal allowed;
@@ -64,11 +73,13 @@ contract AACT is ERC20, BasicToken {
         
         // the creator of the contract is also the initial CEO
         ceoAddress = msg.sender;
+        // CEO is the only one super administrator
+        roles[ceoAddress] = 5;
 
         totalSupply_ = INITIAL_SUPPLY;
     }
 
-    // todo: 根据AACT剩余数量获取当前汇率，应为小数
+    // todo: the exchange rate will be adjust according to the totalSupply_
     function getCurrentExchangeRate2rmb() public view returns(uint) {
 
     }
@@ -84,7 +95,7 @@ contract AACT is ERC20, BasicToken {
     function distributeAACT2company(address _to, uint256 _amount) internal {
         require(roles[_to] == 3);
         require(totalSupply_ >= _amount);
-        // @notice the decimal value will be cut
+        // @notice the decimal value will be cut, thus the actual distributed AACT may be less than _amount
         uint256 _30percent = 3 * _amount / 10;
         uint256 _14percent = 14 * _amount / 100;
         balances[_to] = balances[_to].add(_30percent);
@@ -92,10 +103,20 @@ contract AACT is ERC20, BasicToken {
         comp.valuation = _amount;
         comp.taxAACT = _14percent;
         comp.aipodAACT = _14percent;
-        comp.livelihoodAACT + _14percent;
+        comp.livelihoodAACT = _14percent;
         comp.footstoneAACT = _14percent;
         comp.salesmanAACT = _14percent;
         totalSupply_ = totalSupply_.sub(_30percent + 5 * _14percent);
+    }
+
+    /**
+    * @dev CEO has the privilege to withdraw someone's AACT
+    */
+    function withdrawAACT(address _from, uint256 _amount) public whenNotPaused onlyCEO {
+        require(balances[_from] >= _amount);
+        balances[_from] = balances[_from].sub(_amount);
+        totalSupply_ = totalSupply_.add(_amount);
+        emit WithdrawAACT(_from, _amount);
     }
 
     /**
@@ -107,6 +128,7 @@ contract AACT is ERC20, BasicToken {
         require(roles[_new] == 0);
         roles[_new] = 4;
         footstoneAccounts.push(_new);
+        emit FootstoneRegister(_new);
     }
     /**
     * @dev Register a company address with a salesman, only CEO has the privilege to invoke
