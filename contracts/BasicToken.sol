@@ -15,9 +15,9 @@ contract BasicToken is AACTAccessControl {
 
     uint256 totalSupply_;
 
-    // @dev check if current time is ealier than 2020-01-01
-    modifier before2020() {
-        require(now < 1577808000);
+    // @dev check if current time is later than 2020-01-01
+    modifier after2020() {
+        require(now > 1577808000);
         _;
     }
 
@@ -33,7 +33,7 @@ contract BasicToken is AACTAccessControl {
     * @param _to The address to transfer to.
     * @param _value The amount to be transferred.
     */
-    function transfer(address _to, uint256 _value) public whenNotPaused before2020 returns (bool) {
+    function transfer(address _to, uint256 _value) public whenNotPaused after2020 returns (bool) {
         require(_to != address(0));
         require(_value <= balances[msg.sender]);
 

@@ -14,89 +14,139 @@ contract AACT is ERC20, BasicToken {
 
     string public constant name = "龙古多多";
     string public constant symbol = "AACT";
-    uint256 public constant INITIAL_SUPPLY = 0;
+    uint256 public constant INITIAL_SUPPLY = 104000000000000;
 
-    // 4 main accounts
-    address public taxAccount;
-    address public aipodAccount;
-    address public livelihoodAccount;
-    address public footstoneAccount;
+    uint256 public totalFootstoneAACT;
+    // structure for company
+    struct Company {
+        uint256 valuation;
+        uint256 taxAACT;
+        uint256 aipodAACT;
+        uint256 livelihoodAACT;
+        uint256 footstoneAACT;
+        uint256 salesmanAACT;
+    }
+
+    mapping(address => Company) companys;
+    // 4 main pool
+    address[] public footstoneAccounts;
 
     // events
     // emit when someone register successfully
-    event Register(
-        address _new, uint256 _newBalance,
-        address _salesman, uint256 _salesmanBalance,
-        address _taxAccount, uint256 _taxBalance,
-        address _aipodAccount, uint256 _aipodBalance,
-        address _livelihoodAccount, uint256 _livelihoodBalance,
-        address _footstoneAccount, uint256 _footstoneBalance
+    event CompanyRegister(
+        address _new,
+        address referee,
+        uint256 valuation,
+        uint256 taxAACT,
+        uint256 aipodAACT,
+        uint256 livelihoodAACT,
+        uint256 footstoneAACT,
+        uint256 salesmanAACT
     );
 
     mapping (address => mapping (address => uint256)) internal allowed;
 
-    // @dev every company has a saleman
-    mapping (address => address) salesmans;
+    // @dev roles 5:super administrator, 4:footstoneMember, 3:company, 2:individual, 0:unregistered
+    mapping (address => uint8) roles;
+    // @dev every company has a referee
+    mapping (address => address) referees;
 
-    // @dev make sure msg.sender has been registered
+    // @dev make sure msg.sender has registered
     modifier registered() {
-        require(salesmans[msg.sender] != address(0));
+        require(roles[msg.sender] > 0);
         _;
     }
 
     /// @notice Creates the main AACT smart contract instance.
-    // @param _taxAccount the account of tax
-    // @param _aipodAccount the account of AIPOD
-    // @param _livelihoodAccount the account of livelihood
-    // @param _footstoneAccount the account of footstone
-    function AACT(
-        address _taxAccount,
-        address _aipodAccount,
-        address _livelihoodAccount,
-        address _footstoneAccount
-    ) public {
+    function AACT() public {
         // Starts paused.
         paused = true;
         
         // the creator of the contract is also the initial CEO
         ceoAddress = msg.sender;
 
-        // set 4 main accounts
-        taxAccount = _taxAccount;
-        aipodAccount = _aipodAccount;
-        livelihoodAccount = _livelihoodAccount;
-        footstoneAccount = _footstoneAccount;
-
         totalSupply_ = INITIAL_SUPPLY;
     }
 
-    /// @dev Distribute _amount AACT to _to
-    function distributeAACT(address _to, uint256 _amount) internal {
+    // todo: 根据AACT剩余数量获取当前汇率，应为小数
+    function getCurrentExchangeRate2rmb() public view returns(uint) {
+
+    }
+
+    /// @dev Distribute _amount AACT to _to address
+    function distributeAACT2address(address _to, uint256 _amount) internal {
+        require(totalSupply_ >= _amount);
         balances[_to] = balances[_to].add(_amount);
-        totalSupply_ = totalSupply_.add(_amount);
+        totalSupply_ = totalSupply_.sub(_amount);
+    }
+
+    /// @dev Distribute _amount AACT to _to a company
+    function distributeAACT2company(address _to, uint256 _amount) internal {
+        require(roles[_to] == 3);
+        require(totalSupply_ >= _amount);
+        // @notice the decimal value will be cut
+        uint256 _30percent = 3 * _amount / 10;
+        uint256 _14percent = 14 * _amount / 100;
+        balances[_to] = balances[_to].add(_30percent);
+        Company storage comp = companys[_to];
+        comp.valuation = _amount;
+        comp.taxAACT = _14percent;
+        comp.aipodAACT = _14percent;
+        comp.livelihoodAACT + _14percent;
+        comp.footstoneAACT = _14percent;
+        comp.salesmanAACT = _14percent;
+        totalSupply_ = totalSupply_.sub(_30percent + 5 * _14percent);
     }
 
     /**
-    * @dev Register an company address with a salesman, only CEO has the privilege to invoke
-    * @param _new the new address which need to be registered
-    * @param _valuation the valuation of _new company
-    * @param _salesman _new's salesman
+    * @dev Register a footstone member address, only CEO has the privilege to invoke
+    * @param _new the new footstone member
     */
-    function register(address _new, uint256 _valuation, address _salesman) public whenNotPaused onlyCEO {
-        // the _new must hasn't been registered
-        require(salesmans[_new] == address(0));
-        // set _salesman as _new's salesman
-        salesmans[_new] = _salesman;
+    function registerFootstoneMember(address _new) public whenNotPaused onlyCEO {
+        // @check does the _new need to be unregistered ?
+        require(roles[_new] == 0);
+        roles[_new] = 4;
+        footstoneAccounts.push(_new);
+    }
+    /**
+    * @dev Register a company address with a salesman, only CEO has the privilege to invoke
+    * @param _new the new address which represents the company and need to be registered
+    * @param _valuation the total valuation of _new company
+    * @param _referee the referee who may be a member of footstone member or a registered company
+    * @param _salesmen salesmen who offer assistance to _new company for register
+    */
+    function registerCompany(address _new, uint256 _valuation, address _referee, address[] _salesmen) public whenNotPaused onlyCEO {
+        // the _new must hasn't registered
+        require(roles[_new] == 0);
+        // the _referee's role privilege must be higher than company
+        require(roles[_referee] >= 3);
+        // create new Company
+        roles[_new] = 3;
         // distribute AACTs
-        // @notice the second param's type of distributeAACT is uint256, thus the decimal value will be cut
-        distributeAACT(_new, 3 * _valuation / 10);
-        distributeAACT(_salesman, 14 * _valuation / 100);
-        distributeAACT(taxAccount, 14 * _valuation / 100);
-        distributeAACT(aipodAccount, 14 * _valuation / 100);
-        distributeAACT(livelihoodAccount, 14 * _valuation / 100);
-        distributeAACT(footstoneAccount, 14 * _valuation / 100);
-        // todo: emit Register event
-        emit Register(_new, balances[_new], _salesman, balances[_salesman], taxAccount, balances[taxAccount], aipodAccount, balances[aipodAccount], livelihoodAccount, balances[livelihoodAccount], footstoneAccount, balances[footstoneAccount]);
+        distributeAACT2company(_new, _valuation);
+        // set referee
+        referees[_new] = _referee;
+        Company storage comp = companys[_new];
+        // transfer the footstone AACT to totalFootstoneAACT
+        totalFootstoneAACT = totalFootstoneAACT.add(comp.footstoneAACT);
+        comp.footstoneAACT = 0;
+        // transfer the salesman AACT to salesmen
+        uint256 len = _salesmen.length;
+        if (len > 0) {
+            uint256 perAACT = comp.salesmanAACT / len;
+            uint256 totalSalesmenAACT = 0;
+            for (uint256 i = 0; i < len; i++) {
+                address salesmanAddress = _salesmen[i];
+                if (roles[salesmanAddress] < 2) { // make sure salesman has registered
+                    roles[salesmanAddress] = 2;
+                }
+                balances[_salesmen[i]].add(perAACT);
+                totalSalesmenAACT.add(perAACT);
+            }
+            comp.salesmanAACT.sub(totalSalesmenAACT);
+        }
+        // emit CompanyRegister event
+        emit CompanyRegister(_new, _referee, _valuation, comp.taxAACT, comp.aipodAACT, comp.livelihoodAACT, comp.footstoneAACT, comp.salesmanAACT);
     }
 
     /**
@@ -105,7 +155,7 @@ contract AACT is ERC20, BasicToken {
     * @param _to address The address which you want to transfer to
     * @param _value uint256 the amount of tokens to be transferred
     */
-    function transferFrom(address _from, address _to, uint256 _value) public whenNotPaused before2020 returns (bool) {
+    function transferFrom(address _from, address _to, uint256 _value) public whenNotPaused after2020 returns (bool) {
         require(_to != address(0));
         require(_value <= balances[_from]);
         require(_value <= allowed[_from][msg.sender]);
@@ -127,7 +177,7 @@ contract AACT is ERC20, BasicToken {
     * @param _spender The address which will spend the funds.
     * @param _value The amount of tokens to be spent.
     */
-    function approve(address _spender, uint256 _value) public whenNotPaused before2020 returns (bool) {
+    function approve(address _spender, uint256 _value) public whenNotPaused after2020 returns (bool) {
         allowed[msg.sender][_spender] = _value;
         emit Approval(msg.sender, _spender, _value);
         return true;
@@ -153,7 +203,7 @@ contract AACT is ERC20, BasicToken {
     * @param _spender The address which will spend the funds.
     * @param _addedValue The amount of tokens to increase the allowance by.
     */
-    function increaseApproval(address _spender, uint _addedValue) public whenNotPaused before2020 returns (bool) {
+    function increaseApproval(address _spender, uint _addedValue) public whenNotPaused after2020 returns (bool) {
         allowed[msg.sender][_spender] = allowed[msg.sender][_spender].add(_addedValue);
         emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
         return true;
@@ -169,7 +219,7 @@ contract AACT is ERC20, BasicToken {
     * @param _spender The address which will spend the funds.
     * @param _subtractedValue The amount of tokens to decrease the allowance by.
     */
-    function decreaseApproval(address _spender, uint _subtractedValue) public whenNotPaused before2020 returns (bool) {
+    function decreaseApproval(address _spender, uint _subtractedValue) public whenNotPaused after2020 returns (bool) {
         uint oldValue = allowed[msg.sender][_spender];
         if (_subtractedValue > oldValue) {
             allowed[msg.sender][_spender] = 0;
@@ -179,5 +229,4 @@ contract AACT is ERC20, BasicToken {
         emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
         return true;
     }
-
 }
