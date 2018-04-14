@@ -54,7 +54,6 @@ contract AACT is ERC20, BasicToken {
     );
 
     mapping (address => mapping (address => uint256)) internal allowed;
-
     // @dev roles 5:super administrator, 4:footstoneMember, 3:company, 2:individual, 0:unregistered
     mapping (address => uint8) roles;
     // @dev every company has a referee
@@ -63,6 +62,12 @@ contract AACT is ERC20, BasicToken {
     // @dev make sure msg.sender has registered
     modifier registered() {
         require(roles[msg.sender] > 0);
+        _;
+    }
+
+    // @dev consider roles of company or higher than company as an administrator
+    modifier isAdministrator() {
+        require(roles[msg.sender] >= 3);
         _;
     }
 
@@ -124,7 +129,8 @@ contract AACT is ERC20, BasicToken {
     * @param _new the new footstone member
     */
     function registerFootstoneMember(address _new) public whenNotPaused onlyCEO {
-        // @check does the _new need to be unregistered ?
+        // @check does the _new need to be unregistered?
+        // @check if need to recode CEO as the referee of _new?
         require(roles[_new] == 0);
         roles[_new] = 4;
         footstoneAccounts.push(_new);
@@ -137,6 +143,7 @@ contract AACT is ERC20, BasicToken {
     * @param _referee the referee who may be a member of footstone member or a registered company
     * @param _salesmen salesmen who offer assistance to _new company for register
     */
+    // @check only CEO or every administrator has the privilege to invoke registerCompany?
     function registerCompany(address _new, uint256 _valuation, address _referee, address[] _salesmen) public whenNotPaused onlyCEO {
         // the _new must hasn't registered
         require(roles[_new] == 0);
@@ -152,8 +159,20 @@ contract AACT is ERC20, BasicToken {
         // transfer the footstone AACT to totalFootstoneAACT
         totalFootstoneAACT = totalFootstoneAACT.add(comp.footstoneAACT);
         comp.footstoneAACT = 0;
-        // transfer the salesman AACT to salesmen
+        // todo: transfer the salesman AACT to referee
+        // first distribute the grandreferee part if the grandreferee exists
+        address grandReferee = referees[_referee];
+        if (grandReferee != address(0)) {
+            uint256 grandRefereeRebate = comp.salesmanAACT.mul(4).div(14);
+            balances[grandReferee] = balances[grandReferee].add(grandRefereeRebate);
+            comp.salesmanAACT = comp.salesmanAACT.sub(grandRefereeRebate);
+        }
+        // and then, distribute the referee part
         uint256 len = _salesmen.length;
+        uint256 refereeRebate = len == 0 ? comp.salesmanAACT : comp.salesmanAACT.mul(6).div(10);
+        balances[_referee].add(refereeRebate);
+        comp.salesmanAACT.sub(refereeRebate);
+        // at last, distribute the salesmen part
         if (len > 0) {
             uint256 perAACT = comp.salesmanAACT / len;
             uint256 totalSalesmenAACT = 0;
@@ -162,10 +181,10 @@ contract AACT is ERC20, BasicToken {
                 if (roles[salesmanAddress] < 2) { // make sure salesman has registered
                     roles[salesmanAddress] = 2;
                 }
-                balances[_salesmen[i]].add(perAACT);
-                totalSalesmenAACT.add(perAACT);
+                balances[_salesmen[i]] = balances[_salesmen[i]].add(perAACT);
+                totalSalesmenAACT = totalSalesmenAACT.add(perAACT);
             }
-            comp.salesmanAACT.sub(totalSalesmenAACT);
+            comp.salesmanAACT = comp.salesmanAACT.sub(totalSalesmenAACT);
         }
         // emit CompanyRegister event
         emit CompanyRegister(_new, _referee, _valuation, comp.taxAACT, comp.aipodAACT, comp.livelihoodAACT, comp.footstoneAACT, comp.salesmanAACT);
