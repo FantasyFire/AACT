@@ -27,16 +27,13 @@ contract AACT is ERC20, BasicToken {
         uint256 salesmanAACT;
     }
 
-    mapping(address => Company) companys;
+    mapping(address => Company) public companys;
     // 4 main pool
     address[] public footstoneAccounts;
 
     // events
     // emit when a company register successfully
     event CompanyRegister(
-        address _new,
-        address referee,
-        uint256 valuation,
         uint256 taxAACT,
         uint256 aipodAACT,
         uint256 livelihoodAACT,
@@ -55,9 +52,9 @@ contract AACT is ERC20, BasicToken {
 
     mapping (address => mapping (address => uint256)) internal allowed;
     // @dev roles 5:super administrator, 4:footstoneMember, 3:company, 2:individual, 0:unregistered
-    mapping (address => uint8) roles;
+    mapping (address => uint8) public roles;
     // @dev every company has a referee
-    mapping (address => address) referees;
+    mapping (address => address) public referees;
 
     // @dev make sure msg.sender has registered
     modifier registered() {
@@ -137,14 +134,14 @@ contract AACT is ERC20, BasicToken {
         emit FootstoneRegister(_new);
     }
     /**
-    * @dev Register a company address with a salesman, only CEO has the privilege to invoke
+    * @dev Register a company address with a salesman, only administrator has the privilege to invoke
     * @param _new the new address which represents the company and need to be registered
     * @param _valuation the total valuation of _new company
-    * @param _referee the referee who may be a member of footstone member or a registered company
     * @param _salesmen salesmen who offer assistance to _new company for register
     */
-    // @check only CEO or every administrator has the privilege to invoke registerCompany?
-    function registerCompany(address _new, uint256 _valuation, address _referee, address[] _salesmen) public whenNotPaused onlyCEO {
+    function registerCompany(address _new, uint256 _valuation, address[] _salesmen) public whenNotPaused isAdministrator {
+        // consider the message sender as the referee
+        address _referee = msg.sender;
         // the _new must hasn't registered
         require(roles[_new] == 0);
         // the _referee's role privilege must be higher than company
@@ -170,8 +167,8 @@ contract AACT is ERC20, BasicToken {
         // and then, distribute the referee part
         uint256 len = _salesmen.length;
         uint256 refereeRebate = len == 0 ? comp.salesmanAACT : comp.salesmanAACT.mul(6).div(10);
-        balances[_referee].add(refereeRebate);
-        comp.salesmanAACT.sub(refereeRebate);
+        balances[_referee] = balances[_referee].add(refereeRebate);
+        comp.salesmanAACT = comp.salesmanAACT.sub(refereeRebate);
         // at last, distribute the salesmen part
         if (len > 0) {
             uint256 perAACT = comp.salesmanAACT / len;
@@ -187,7 +184,7 @@ contract AACT is ERC20, BasicToken {
             comp.salesmanAACT = comp.salesmanAACT.sub(totalSalesmenAACT);
         }
         // emit CompanyRegister event
-        emit CompanyRegister(_new, _referee, _valuation, comp.taxAACT, comp.aipodAACT, comp.livelihoodAACT, comp.footstoneAACT, comp.salesmanAACT);
+        emit CompanyRegister(comp.taxAACT, comp.aipodAACT, comp.livelihoodAACT, comp.footstoneAACT, comp.salesmanAACT);
     }
 
     /**
