@@ -81,9 +81,10 @@ contract AACT is ERC20, BasicToken {
         totalSupply_ = INITIAL_SUPPLY;
     }
 
-    // todo: the exchange rate will be adjust according to the totalSupply_
-    function getCurrentExchangeRate2rmb() public view returns(uint) {
-
+    // the exchange rate will be adjust according to the totalSupply_
+    // @notice the return value x, represents the exchange rate between AACT and rmb is 1 : x/1000000
+    function getCurrentExchangeRate2rmb() public view returns(uint256) {
+        return 1000000 + 99000000 * (INITIAL_SUPPLY - totalSupply_) / INITIAL_SUPPLY;
     }
 
     /// @dev Distribute _amount AACT to _to address
