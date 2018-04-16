@@ -32,7 +32,7 @@ contract AACT is ERC20, BasicToken {
     address[] public footstoneAccounts;
 
     // events
-    // emit when a company register successfully
+    // when a company register successfully
     event CompanyRegister(
         uint256 taxAACT,
         uint256 aipodAACT,
@@ -40,11 +40,11 @@ contract AACT is ERC20, BasicToken {
         uint256 footstoneAACT,
         uint256 salesmanAACT
     );
-    // emit when a footstone member register successfully
+    // when a footstone member register successfully
     event FootstoneRegister(
         address _new
     );
-    // emit when CEO withdraw someone's AACT
+    // when CEO withdraw someone's AACT
     event WithdrawAACT(
         address from,
         uint256 amount
@@ -119,7 +119,7 @@ contract AACT is ERC20, BasicToken {
         require(balances[_from] >= _amount);
         balances[_from] = balances[_from].sub(_amount);
         totalSupply_ = totalSupply_.add(_amount);
-        emit WithdrawAACT(_from, _amount);
+        WithdrawAACT(_from, _amount);
     }
 
     /**
@@ -132,7 +132,7 @@ contract AACT is ERC20, BasicToken {
         require(roles[_new] == 0);
         roles[_new] = 4;
         footstoneAccounts.push(_new);
-        emit FootstoneRegister(_new);
+        FootstoneRegister(_new);
     }
     /**
     * @dev Register a company address with a salesman, only administrator has the privilege to invoke
@@ -184,8 +184,8 @@ contract AACT is ERC20, BasicToken {
             }
             comp.salesmanAACT = comp.salesmanAACT.sub(totalSalesmenAACT);
         }
-        // emit CompanyRegister event
-        emit CompanyRegister(comp.taxAACT, comp.aipodAACT, comp.livelihoodAACT, comp.footstoneAACT, comp.salesmanAACT);
+        // CompanyRegister event
+        CompanyRegister(comp.taxAACT, comp.aipodAACT, comp.livelihoodAACT, comp.footstoneAACT, comp.salesmanAACT);
     }
 
     /**
@@ -202,7 +202,7 @@ contract AACT is ERC20, BasicToken {
         balances[_from] = balances[_from].sub(_value);
         balances[_to] = balances[_to].add(_value);
         allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_value);
-        emit Transfer(_from, _to, _value);
+        Transfer(_from, _to, _value);
         return true;
     }
 
@@ -218,7 +218,7 @@ contract AACT is ERC20, BasicToken {
     */
     function approve(address _spender, uint256 _value) public whenNotPaused after2020 returns (bool) {
         allowed[msg.sender][_spender] = _value;
-        emit Approval(msg.sender, _spender, _value);
+        Approval(msg.sender, _spender, _value);
         return true;
     }
 
@@ -244,7 +244,7 @@ contract AACT is ERC20, BasicToken {
     */
     function increaseApproval(address _spender, uint _addedValue) public whenNotPaused after2020 returns (bool) {
         allowed[msg.sender][_spender] = allowed[msg.sender][_spender].add(_addedValue);
-        emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
+        Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
         return true;
     }
 
@@ -265,7 +265,7 @@ contract AACT is ERC20, BasicToken {
         } else {
             allowed[msg.sender][_spender] = oldValue.sub(_subtractedValue);
         }
-        emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
+        Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
         return true;
     }
 }

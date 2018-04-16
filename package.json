@@ -1,0 +1,19 @@
+{
+  "name": "aact",
+  "version": "1.0.0",
+  "description": "koven测试网络已发布的合约地址： 0x74af752f9d5006894c28f6f811429f26b55380f7",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FantasyFire/AACT.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/FantasyFire/AACT/issues"
+  },
+  "homepage": "https://github.com/FantasyFire/AACT#readme"
+}
