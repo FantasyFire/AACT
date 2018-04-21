@@ -35,6 +35,7 @@ contract AACT is ERC20, BasicToken {
     // events
     // when a company register successfully
     event CompanyRegister(
+        uint256 balanceAACT,
         uint256 taxAACT,
         uint256 aipodAACT,
         uint256 livelihoodAACT,
@@ -186,7 +187,7 @@ contract AACT is ERC20, BasicToken {
             comp.salesmanAACT = comp.salesmanAACT.sub(totalSalesmenAACT);
         }
         // CompanyRegister event
-        emit CompanyRegister(comp.taxAACT, comp.aipodAACT, comp.livelihoodAACT, comp.footstoneAACT, comp.salesmanAACT);
+        emit CompanyRegister(balances[_new], comp.taxAACT, comp.aipodAACT, comp.livelihoodAACT, comp.footstoneAACT, comp.salesmanAACT);
     }
 
     /**
