@@ -14,10 +14,16 @@ contract AACT is ERC20, BasicToken {
 
     string public constant name = "龙贝多多";
     string public constant symbol = "AACT";
-    uint256 public constant INITIAL_SUPPLY = 104000000000000;
+    uint256 public constant TOTAL_SUPPLY = 104000000000000;
     uint8 public constant decimals = 18;
 
-    uint256 public totalFootstoneAACT;
+    uint256 totalSupply_;
+
+    // all supply types
+    uint8[] public supplyTypes;
+    // total supply for each type
+    mapping(uint8 => uint256) supplys;
+
     // structure for company
     struct Company {
         uint256 valuation;
@@ -29,12 +35,12 @@ contract AACT is ERC20, BasicToken {
     }
 
     mapping(address => Company) public companys;
-    // 4 main pool
+
     address[] public footstoneAccounts;
 
     // events
-    // when a company register successfully
-    event CompanyRegister(
+    // when a company's worth upload successfully
+    event CompanyWorthUpload(
         uint256 balanceAACT,
         uint256 taxAACT,
         uint256 aipodAACT,
@@ -42,10 +48,14 @@ contract AACT is ERC20, BasicToken {
         uint256 footstoneAACT,
         uint256 salesmanAACT
     );
-    // when a footstone member register successfully
-    event FootstoneRegister(
-        address _new
+
+    // when someone gain AACT by helping a company upload its worth
+    event GainRewardFromCompany(
+        address rewardAddress,
+        uint256 rewardAACT,
+        address companyAddress
     );
+
     // when CEO withdraw someone's AACT
     event WithdrawAACT(
         address from,
@@ -80,24 +90,16 @@ contract AACT is ERC20, BasicToken {
         // CEO is the only one super administrator
         roles[ceoAddress] = 5;
 
-        totalSupply_ = INITIAL_SUPPLY;
+        // 1 for legal money assets
+        supplyTypes.push(1);
+        // 2 for resource assets
+        supplyTypes.push(2);
+        // real supply
+        totalSupply_ = TOTAL_SUPPLY;
     }
 
-    // the exchange rate will be adjust according to the totalSupply_
-    // @notice the return value x, means that the exchange rate between AACT and rmb is 1 : x/1000000
-    function getCurrentExchangeRate2rmb() public view returns(uint256) {
-        return 1000000 + 99000000 * (INITIAL_SUPPLY - totalSupply_) / INITIAL_SUPPLY;
-    }
-
-    /// @dev Distribute _amount AACT to _to address
-    function distributeAACT2address(address _to, uint256 _amount) internal {
-        require(totalSupply_ >= _amount);
-        balances[_to] = balances[_to].add(_amount);
-        totalSupply_ = totalSupply_.sub(_amount);
-    }
-
-    /// @dev Distribute _amount AACT to _to a company
-    function distributeAACT2company(address _to, uint256 _amount) internal {
+    /// @dev Allocate _amount AACT to _to a company
+    function allocateAACT2company(address _to, uint256 _amount, uint8 _supplyType) internal {
         require(roles[_to] == 3);
         require(totalSupply_ >= _amount);
         // @notice the decimal value will be cut, thus the actual distributed AACT may be less than _amount
@@ -105,13 +107,25 @@ contract AACT is ERC20, BasicToken {
         uint256 _14percent = 14 * _amount / 100;
         balances[_to] = balances[_to].add(_30percent);
         Company storage comp = companys[_to];
-        comp.valuation = _amount;
-        comp.taxAACT = _14percent;
-        comp.aipodAACT = _14percent;
-        comp.livelihoodAACT = _14percent;
-        comp.footstoneAACT = _14percent;
-        comp.salesmanAACT = _14percent;
-        totalSupply_ = totalSupply_.sub(_30percent + 5 * _14percent);
+        comp.valuation = comp.valuation.add(_amount);
+        comp.taxAACT = comp.taxAACT.add(_14percent);
+        comp.aipodAACT = comp.aipodAACT.add(_14percent);
+        comp.livelihoodAACT = comp.livelihoodAACT.add(_14percent);
+        comp.footstoneAACT = comp.footstoneAACT.add(_14percent);
+        comp.salesmanAACT = comp.salesmanAACT.add(_14percent);
+        uint256 _totalSupply = _30percent + 5 * _14percent;
+        totalSupply_ = totalSupply_.sub(_totalSupply);
+        supplys[_supplyType] = supplys[_supplyType].add(_totalSupply);
+    }
+
+    /**
+    * @dev CEO can transfer his AACT to anyone whenever
+    */
+    function transferAACT(address _to, uint256 _amount) public whenNotPaused onlyCEO {
+        require(balances[ceoAddress] >= _amount);
+        balances[ceoAddress] = balances[ceoAddress].sub(_amount);
+        balances[_to] = balances[_to].add(_amount);
+        emit Transfer(ceoAddress, _to, _amount);
     }
 
     /**
@@ -129,49 +143,50 @@ contract AACT is ERC20, BasicToken {
     * @param _new the new footstone member
     */
     function registerFootstoneMember(address _new) public whenNotPaused onlyCEO {
-        // @check does the _new need to be unregistered?
-        // @check if need to recode CEO as the referee of _new?
-        require(roles[_new] == 0);
+        require(roles[_new] <= 4);
         roles[_new] = 4;
         footstoneAccounts.push(_new);
-        emit FootstoneRegister(_new);
     }
+
     /**
-    * @dev Register a company address with a salesman, only administrator has the privilege to invoke
+    * @dev Upload a company's worth with some salesmen, only administrator has the privilege to invoke
     * @param _new the new address which represents the company and need to be registered
     * @param _valuation the total valuation of _new company
+    * @param _supplyType the supply type
     * @param _salesmen salesmen who offer assistance to _new company for register
     */
-    function registerCompany(address _new, uint256 _valuation, address[] _salesmen) public whenNotPaused isAdministrator {
+    function uploadCompanyWorth(address _new, uint256 _valuation, uint8 _supplyType, address[] _salesmen) public whenNotPaused isAdministrator {
         // consider the message sender as the referee
         address _referee = msg.sender;
-        // the _new must hasn't registered
-        require(roles[_new] == 0);
         // the _referee's role privilege must be higher than company
         require(roles[_referee] >= 3);
         // create new Company
         roles[_new] = 3;
         // distribute AACTs
-        distributeAACT2company(_new, _valuation);
-        // set referee
-        referees[_new] = _referee;
+        allocateAACT2company(_new, _valuation, _supplyType);
+        // set referee if the company didn't has one
+        if (referees[_new] == address(0)) {
+            referees[_new] = _referee;
+        }
         Company storage comp = companys[_new];
-        // transfer the footstone AACT to totalFootstoneAACT
-        totalFootstoneAACT = totalFootstoneAACT.add(comp.footstoneAACT);
+        // transfer the footstone AACT to CEO account
+        balances[ceoAddress] = balances[ceoAddress].add(comp.footstoneAACT);
         comp.footstoneAACT = 0;
-        // todo: transfer the salesman AACT to referee
+        // transfer the salesman AACT to referee
         // first distribute the grandreferee part if the grandreferee exists
         address grandReferee = referees[_referee];
         if (grandReferee != address(0)) {
             uint256 grandRefereeRebate = comp.salesmanAACT.mul(4).div(14);
             balances[grandReferee] = balances[grandReferee].add(grandRefereeRebate);
             comp.salesmanAACT = comp.salesmanAACT.sub(grandRefereeRebate);
+            emit GainRewardFromCompany(grandReferee, grandRefereeRebate, _new);
         }
         // and then, distribute the referee part
         uint256 len = _salesmen.length;
         uint256 refereeRebate = len == 0 ? comp.salesmanAACT : comp.salesmanAACT.mul(6).div(10);
         balances[_referee] = balances[_referee].add(refereeRebate);
         comp.salesmanAACT = comp.salesmanAACT.sub(refereeRebate);
+        emit GainRewardFromCompany(_referee, refereeRebate, _new);
         // at last, distribute the salesmen part
         if (len > 0) {
             uint256 perAACT = comp.salesmanAACT / len;
@@ -186,8 +201,35 @@ contract AACT is ERC20, BasicToken {
             }
             comp.salesmanAACT = comp.salesmanAACT.sub(totalSalesmenAACT);
         }
-        // CompanyRegister event
-        emit CompanyRegister(balances[_new], comp.taxAACT, comp.aipodAACT, comp.livelihoodAACT, comp.footstoneAACT, comp.salesmanAACT);
+        // CompanyWorthUpload event
+        emit CompanyWorthUpload(balances[_new], comp.taxAACT, comp.aipodAACT, comp.livelihoodAACT, comp.footstoneAACT, comp.salesmanAACT);
+    }
+
+    /**
+    * @overwrite totalSupply by count supplys of each type
+    */
+    function totalSupply() public view returns(uint256) {
+        uint256 _totalSupply = 0;
+        for (uint8 i = 0; i < supplyTypes.length; i++) {
+            _totalSupply += supplys[supplyTypes[i]];
+        }
+        return _totalSupply;
+    }
+
+    /**
+    * @dev Add a new supply type
+    */
+    function addSupplyType(uint8 _newType) public onlyCEO {
+        bool typeExist = false;
+        for (uint8 i = 0; i < supplyTypes.length; i++) {
+            if (supplyTypes[i] == _newType) {
+                typeExist = true;
+                break;
+            }
+        }
+        if (!typeExist) {
+            supplyTypes.push(_newType);
+        }
     }
 
     /**

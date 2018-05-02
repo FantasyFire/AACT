@@ -13,8 +13,6 @@ contract BasicToken is AACTAccessControl {
 
     mapping(address => uint256) balances;
 
-    uint256 totalSupply_;
-
     // @dev check if current time is later than 2020-01-01
     modifier after2020() {
         require(now > 1577808000);
@@ -24,9 +22,8 @@ contract BasicToken is AACTAccessControl {
     /**
     * @dev total number of tokens in existence
     */
-    function totalSupply() public view returns (uint256) {
-        return totalSupply_;
-    }
+    function totalSupply() public view returns (uint256);
+    
 
     /**
     * @dev transfer token for a specified address
