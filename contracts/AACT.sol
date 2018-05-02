@@ -189,20 +189,27 @@ contract AACT is ERC20, BasicToken {
         emit GainRewardFromCompany(_referee, refereeRebate, _new);
         // at last, distribute the salesmen part
         if (len > 0) {
-            uint256 perAACT = comp.salesmanAACT / len;
-            uint256 totalSalesmenAACT = 0;
-            for (uint256 i = 0; i < len; i++) {
-                address salesmanAddress = _salesmen[i];
-                if (roles[salesmanAddress] < 2) { // make sure salesman has registered
-                    roles[salesmanAddress] = 2;
-                }
-                balances[_salesmen[i]] = balances[_salesmen[i]].add(perAACT);
-                totalSalesmenAACT = totalSalesmenAACT.add(perAACT);
-            }
-            comp.salesmanAACT = comp.salesmanAACT.sub(totalSalesmenAACT);
+            allocateSalemenAACT(comp, len, _salesmen);
         }
         // CompanyWorthUpload event
         emit CompanyWorthUpload(balances[_new], comp.taxAACT, comp.aipodAACT, comp.livelihoodAACT, comp.footstoneAACT, comp.salesmanAACT);
+    }
+    
+    /**
+    * @dev calculate totalSupply by count supplys of each type
+    */
+    function allocateSalemenAACT(Company storage comp, uint256 len, address[] _salesmen) internal {
+        uint256 perAACT = comp.salesmanAACT / len;
+        uint256 totalSalesmenAACT = 0;
+        for (uint8 i = 0; i < len; i++) {
+            address salesmanAddress = _salesmen[i];
+            if (roles[salesmanAddress] < 2) { // make sure salesman has registered
+                roles[salesmanAddress] = 2;
+            }
+            balances[_salesmen[i]] = balances[_salesmen[i]].add(perAACT);
+            totalSalesmenAACT = totalSalesmenAACT.add(perAACT);
+        }
+        comp.salesmanAACT = comp.salesmanAACT.sub(totalSalesmenAACT);
     }
 
     /**
