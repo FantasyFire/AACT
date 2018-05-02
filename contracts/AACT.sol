@@ -206,7 +206,7 @@ contract AACT is ERC20, BasicToken {
     }
 
     /**
-    * @overwrite totalSupply by count supplys of each type
+    * @dev totalSupply by count supplys of each type
     */
     function totalSupply() public view returns(uint256) {
         uint256 _totalSupply = 0;
