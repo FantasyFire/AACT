@@ -18,6 +18,8 @@ contract AACT is ERC20, BasicToken {
     uint8 public constant decimals = 18;
 
     uint256 totalSupply_;
+    // withdraw AACT amount
+    uint256 historySupply_;
 
     // all supply types
     uint8[] public supplyTypes;
@@ -75,7 +77,7 @@ contract AACT is ERC20, BasicToken {
     }
 
     // @dev consider roles of company or higher than company as an administrator
-    modifier isAdministrator() {
+    modifier onlyAdmin() {
         require(roles[msg.sender] >= 3);
         _;
     }
@@ -94,14 +96,14 @@ contract AACT is ERC20, BasicToken {
         supplyTypes.push(1);
         // 2 for resource assets
         supplyTypes.push(2);
-        // real supply
-        totalSupply_ = TOTAL_SUPPLY;
+        // total supply AACT amount
+        totalSupply_ = 0;
     }
 
     /// @dev Allocate _amount AACT to _to a company
     function allocateAACT2company(address _to, uint256 _amount, uint8 _supplyType) internal {
-        require(roles[_to] == 3);
-        require(totalSupply_ >= _amount);
+        require(roles[_to] > 3);
+        require(totalSupply_ + _amount < TOTAL_SUPPLY);
         // @notice the decimal value will be cut, thus the actual distributed AACT may be less than _amount
         uint256 _30percent = 3 * _amount / 10;
         uint256 _14percent = 14 * _amount / 100;
@@ -114,7 +116,7 @@ contract AACT is ERC20, BasicToken {
         comp.footstoneAACT = comp.footstoneAACT.add(_14percent);
         comp.salesmanAACT = comp.salesmanAACT.add(_14percent);
         uint256 _totalSupply = _30percent + 5 * _14percent;
-        totalSupply_ = totalSupply_.sub(_totalSupply);
+        totalSupply_ = totalSupply_.add(_totalSupply);
         supplys[_supplyType] = supplys[_supplyType].add(_totalSupply);
     }
 
@@ -134,34 +136,41 @@ contract AACT is ERC20, BasicToken {
     function withdrawAACT(address _from, uint256 _amount) public whenNotPaused onlyCEO {
         require(balances[_from] >= _amount);
         balances[_from] = balances[_from].sub(_amount);
-        totalSupply_ = totalSupply_.add(_amount);
+        historySupply_ = historySupply_.add(_amount);
         emit WithdrawAACT(_from, _amount);
     }
 
     /**
-    * @dev Register a footstone member address, only CEO has the privilege to invoke
+    * @dev set role of an address, only CEO has the privilege to invoke
     * @param _new the new footstone member
+    * @param _role the role will be set
     */
-    function registerFootstoneMember(address _new) public whenNotPaused onlyCEO {
-        require(roles[_new] <= 4);
-        roles[_new] = 4;
-        footstoneAccounts.push(_new);
+    function setRole(address _new, uint8 _role) public whenNotPaused onlyCEO {
+        if (roles[_new] <= _role && _role < 5) {
+            roles[_new] = _role;
+            if (_role == 4) {
+                footstoneAccounts.push(_new);
+            }
+        }
     }
 
     /**
-    * @dev Upload a company's worth with some salesmen, only administrator has the privilege to invoke
+    * @dev Upload a company's worth with some salesmen
     * @param _new the new address which represents the company and need to be registered
+    * @param _referee the referee of _new company
     * @param _valuation the total valuation of _new company
     * @param _supplyType the supply type
     * @param _salesmen salesmen who offer assistance to _new company for register
     */
-    function uploadCompanyWorth(address _new, uint256 _valuation, uint8 _supplyType, address[] _salesmen) public whenNotPaused isAdministrator {
-        // consider the message sender as the referee
-        address _referee = msg.sender;
+    function uploadCompanyWorth(address _new, address _referee, uint256 _valuation, uint8 _supplyType, address[] _salesmen) public whenNotPaused {
         // the _referee's role privilege must be higher than company
         require(roles[_referee] >= 3);
-        // create new Company
-        roles[_new] = 3;
+        // the _referee must be msg.sender or CEO
+        require(ceoAddress == _referee || msg.sender == _referee);
+        // elevate _new's role
+        if (roles[_new] < 3) {
+            roles[_new] = 3;
+        }
         // distribute AACTs
         allocateAACT2company(_new, _valuation, _supplyType);
         // set referee if the company didn't has one
@@ -189,7 +198,7 @@ contract AACT is ERC20, BasicToken {
         emit GainRewardFromCompany(_referee, refereeRebate, _new);
         // at last, distribute the salesmen part
         if (len > 0) {
-            allocateSalemenAACT(comp, len, _salesmen);
+            allocateSalemenAACT(_new, len, _salesmen);
         }
         // CompanyWorthUpload event
         emit CompanyWorthUpload(balances[_new], comp.taxAACT, comp.aipodAACT, comp.livelihoodAACT, comp.footstoneAACT, comp.salesmanAACT);
@@ -198,7 +207,8 @@ contract AACT is ERC20, BasicToken {
     /**
     * @dev calculate totalSupply by count supplys of each type
     */
-    function allocateSalemenAACT(Company storage comp, uint256 len, address[] _salesmen) internal {
+    function allocateSalemenAACT(address _new, uint256 len, address[] _salesmen) internal {
+        Company storage comp = companys[_new];
         uint256 perAACT = comp.salesmanAACT / len;
         uint256 totalSalesmenAACT = 0;
         for (uint8 i = 0; i < len; i++) {
@@ -208,19 +218,23 @@ contract AACT is ERC20, BasicToken {
             }
             balances[_salesmen[i]] = balances[_salesmen[i]].add(perAACT);
             totalSalesmenAACT = totalSalesmenAACT.add(perAACT);
+            emit GainRewardFromCompany(_salesmen[i], perAACT, _new);
         }
         comp.salesmanAACT = comp.salesmanAACT.sub(totalSalesmenAACT);
     }
 
     /**
-    * @dev calculate totalSupply by count supplys of each type
+    * @dev return totalSupply_
     */
     function totalSupply() public view returns(uint256) {
-        uint256 _totalSupply = 0;
-        for (uint8 i = 0; i < supplyTypes.length; i++) {
-            _totalSupply += supplys[supplyTypes[i]];
-        }
-        return _totalSupply;
+        return totalSupply_;
+    }
+
+    /**
+    * @dev return historySupply_
+    */
+    function historySupply() public view returns(uint256) {
+        return historySupply_;
     }
 
     /**
