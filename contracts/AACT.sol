@@ -102,7 +102,7 @@ contract AACT is ERC20, BasicToken {
 
     /// @dev Allocate _amount AACT to _to a company
     function allocateAACT2company(address _to, uint256 _amount, uint8 _supplyType) internal {
-        require(roles[_to] > 3);
+        require(roles[_to] >= 3);
         require(totalSupply_ + _amount < TOTAL_SUPPLY);
         // @notice the decimal value will be cut, thus the actual distributed AACT may be less than _amount
         uint256 _30percent = 3 * _amount / 10;
