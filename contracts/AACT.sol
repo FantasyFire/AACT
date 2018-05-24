@@ -24,7 +24,7 @@ contract AACT is ERC20, BasicToken {
     // all supply types
     uint8[] public supplyTypes;
     // total supply for each type
-    mapping(uint8 => uint256) supplys;
+    mapping(uint8 => uint256) public supplys;
 
     // structure for company
     struct Company {
